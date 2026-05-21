@@ -1,0 +1,40 @@
+# cPanel / Apache: SPA fallback so React Router routes (e.g. /analytics) survive page refresh.
+# Vite copies anything inside public/ to dist/ verbatim, so this lands at dist/.htaccess on build.
+# Upload dist/ contents to:  public_html/review-mamagementv2/
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /review-mamagementv2/
+
+  # If the requested path is a real file or directory, serve it as-is.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise hand the request to index.html so React Router can route it.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # ── Override the parent site's CSP ─────────────────────────────────────────
+  # multiplierai.co (hosted on GoDaddy) injects a strict Content-Security-Policy
+  # that only whitelists GoDaddy + Google domains for connect-src. Our backend
+  # at gmbreports.gmbapi.multipliersolutions.in is blocked by it. We unset the
+  # inherited CSP and set our own that allows the backend + Ollama API.
+  Header always unset Content-Security-Policy
+  Header always unset Content-Security-Policy-Report-Only
+  Header always set Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; connect-src 'self' https://gmbreports.gmbapi.multipliersolutions.in https://ollama.com; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval';"
+
+  # Long-cache hashed assets emitted by Vite under /assets/
+  <FilesMatch "\.(js|css|svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|eot)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# Gzip
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json image/svg+xml
+</IfModule>
